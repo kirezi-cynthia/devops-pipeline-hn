@@ -1,0 +1,27 @@
+name: CI Build and Test
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Placeholder step: Replace this with your actual build/setup commands (e.g., npm install, pip install)
+      - name: Dummy Build Step
+        run: echo "Starting build process..."
+
+      # Placeholder step: Replace this with your actual test commands (e.g., npm test, pytest)
+      - name: Dummy Test Step
+        run: echo "Running placeholder tests... SUCCESS"
