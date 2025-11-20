@@ -1,1 +1,67 @@
-# Docker Compose for local environment
+version: '3.8'
+services:
+  # --- 1. Database Service ---
+  database:
+    image: postgres:15-alpine
+    environment:
+      # Use environment variables for sensitive data, with defaults
+      POSTGRES_USER: ${DB_USER:-devops}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-devops123}
+      POSTGRES_DB: ${DB_NAME:-devops_app}
+    volumes:
+      # Persist data across container restarts
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    # Health check for readiness before dependent services start
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devops"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- 2. Backend Service (Python/Flask) ---
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      # Pass database connection string to the backend app
+      DATABASE_URL: postgresql://${DB_USER:-devops}:${DB_PASSWORD:-devops123}@database:5432/${DB_NAME:-devops_app}
+      # Python Specific: Ensure development settings are active
+      FLASK_ENV: development
+    ports:
+      # Map container port 5000 (Python default) to host port 5000
+      - "5000:5000"
+    depends_on:
+      database:
+        # Only start the backend once the database reports healthy
+        condition: service_healthy
+    networks:
+      - app-network
+    volumes:
+      # Mount the local backend directory for hot-reloading code changes during development
+      - ./backend:/app
+      # Exclude dependencies from hot-reloading (critical for non-Node stacks too)
+      - /app/site-packages # Changed from /app/node_modules
+
+  # --- 3. Frontend Service (React/Nginx) ---
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      # Map container port 80 (Nginx default) to host port 80
+      - "80:80"
+    depends_on:
+      # Wait for the backend API to be ready
+      - backend
+    networks:
+      - app-network
+
+# Define volumes and networks
+volumes:
+  postgres_data:
+networks:
+  app-network:
+    driver: bridge
